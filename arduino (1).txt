@@ -1,0 +1,129 @@
+#include<Servo.h>
+const int blueLed=11;
+const int redLed=6;
+const int greenLed=5;
+const int blueLed1=2;  
+const int blueLed2=3;
+
+int redVal   = 255; // Variables to store the values to send to the pins
+int i = 0;     // Loop counter    
+int wait = 10; // 50ms (.05 second) delay; shorten for faster fades
+int DEBUG = 0; // DEBUG counter; if set to 1, will write values back via serial
+int pos = 0;
+char incomingData='0';
+
+Servo window;
+
+void setup() {
+// put your setup code here, to run once:
+//getting leds ready 
+Serial.begin(9600);
+pinMode(blueLed, OUTPUT);
+pinMode(blueLed1, OUTPUT);
+pinMode(blueLed2, OUTPUT);
+pinMode(redLed, OUTPUT);
+pinMode(greenLed, OUTPUT);
+window.attach(9);
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  incomingData=Serial.read();
+  
+      //i += 1;      // Increment counter
+  if (i < 255) // First phase of fades
+  {
+    redVal = 10; // Red down
+  }  
+      
+  if (DEBUG) { // If we want to read the output
+    DEBUG += 1;     // Increment the DEBUG counter
+    if (DEBUG > 10000000) // Print every 10 loops
+    {
+      Serial.print(i);       // Serial commands in 0004 style
+      Serial.print("\t");    // Print a tab
+      Serial.print("R:");    // Indicate that output is red value
+      Serial.print(redVal);  // Print red value
+    }
+  }
+  delay(wait); // Pause for 'wait' milliseconds before resuming the loop
+  // Switch case for controlling led in our case we have only 3 Blue, Green and Red 
+  switch(incomingData)
+  {
+      //These cases are only for state ON of led
+      // For blue led
+      case 'B':
+      digitalWrite(blueLed, HIGH);
+      digitalWrite(blueLed1, HIGH);
+      digitalWrite(blueLed2, HIGH);
+      break;    
+      
+      // For red led
+      case 'R':
+      digitalWrite(redLed, HIGH);
+      break;    
+
+      //For dim the Red LED
+      case 'D':
+     analogWrite(redLed,   redVal);   // Write current values to LED pins  
+     break;
+      
+      // For green led
+      case 'G':
+      digitalWrite(greenLed, HIGH);
+      break;    
+
+      //These cases are  for state OFF of led and case name z , x, c are just randomly given you can also change but 
+      // make sure you change it in a c# code as well.
+      // For blue led
+      case 'Z':
+      digitalWrite(blueLed, LOW);
+      digitalWrite(blueLed1, LOW);
+      digitalWrite(blueLed2, LOW);
+      break;    
+      
+      // For red led
+      case 'X':
+       digitalWrite(redLed, LOW);
+      break;    
+      
+      // For green led
+      case 'C':
+       digitalWrite(greenLed, LOW);
+      break;
+
+      //For turning ON all leds at once :)
+      case 'V':
+      digitalWrite(blueLed, HIGH);
+      digitalWrite(blueLed1, HIGH);
+      digitalWrite(blueLed2, HIGH);
+      digitalWrite(redLed, HIGH);
+      digitalWrite(greenLed, HIGH);
+      break;
+
+      //For turning OFF all leds at once :)
+      case 'M':
+      digitalWrite(blueLed, LOW);
+      digitalWrite(blueLed1, LOW);
+      digitalWrite(blueLed2, LOW);
+      digitalWrite(redLed, LOW);
+      digitalWrite(greenLed, LOW);
+      break;
+      
+      case 'T':
+      for (pos = 90; pos > 0; pos--)
+      {
+        window.write(pos);
+        delay(50);
+      }
+      break;
+
+      case 'W':
+      for (pos = 0; pos < 90; pos++)
+      {
+        window.write(pos);
+        delay(50);
+      }
+      break;
+  }
+}

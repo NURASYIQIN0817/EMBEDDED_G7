@@ -1,0 +1,246 @@
+using System;
+using System.Windows.Forms;
+using System.IO.Ports; // This library is for connecting C# and Arduino to transmit and receive data through ports
+//Below are libraries for voice recognition
+using System.Speech;
+using System.Speech.Recognition;    //for recognising user voice input
+using System.Speech.Synthesis;  //for system to speak
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Diagnostics;
+using System.Media; //for enable media files to be imported
+using System.Runtime.InteropServices;
+using AudioSwitcher.AudioApi.CoreAudio; //for controlling audio
+
+namespace ProjectG7
+{
+    public partial class Form1 : Form
+    {
+        SerialPort myPort = new SerialPort();
+        SpeechRecognitionEngine rec = new SpeechRecognitionEngine();
+        SpeechSynthesizer ss = new SpeechSynthesizer(); // When you want program to talk back to you 
+        Choices commands = new Choices(); // This is an important class as name suggest we will store our commands in this object
+        Boolean wake = true; //the program to be in Awake mode
+        Choices list = new Choices(); 
+
+        public Form1()
+        {
+            SpeechRecognitionEngine rec = new SpeechRecognitionEngine();
+            list.Add(new String[] { "music please", "tell the time", "what is today", "launch youtube", "wake", "serene, sleep", "take five",
+            "stop the music", "volume up", "decrease volume", "power off", "serene, report", "serene, hello", "main light", "bedroom", "pantry", "main light off", "bedroom off", "pantry off",
+            "christmas", "lights out", "bedroom dim", "window", "close window" }); //the list of voice commands to be recognised by the program
+            Grammar gr = new Grammar(new GrammarBuilder(list)); //Grammar class to make use of lexical grammar
+
+            //Details of Arduino board
+            myPort.PortName = "COM7"; // My Port name in Arduino IDE selected COM5 you need to change Port name if it is different  just check in arduinoIDE
+            myPort.BaudRate = 9600;  // This Rate is Same as arduino Serial.begin(9600) bits per second
+                                     //  processing();
+
+            ss.SelectVoiceByHints(VoiceGender.Female);  //using a female voice
+            ss.Speak("Hello, Maker. I am Serene, your voice command assistant, how may I help?");   //initiating line spoken by the system
+            InitializeComponent();
+
+            try     //try-catch statements to specify handlers for different exceptions
+            {
+                rec.RequestRecognizerUpdate();
+                rec.LoadGrammar(gr);
+                rec.SpeechRecognized += rec_SpeechRecognized;
+                rec.SetInputToDefaultAudioDevice();
+                rec.RecognizeAsync(RecognizeMode.Multiple);
+
+                // For more information about below funtions refer to site https://docs.microsoft.com/en-us/dotnet/api/system.speech.recognition?view=netframework-4.7.2
+                rec.RequestRecognizerUpdate(); // Pause Speech Recognition Engine before loading commands
+                rec.LoadGrammarAsync(gr);
+                rec.SetInputToDefaultAudioDevice();// As Name suggest input device builtin microphone or you can also connect earphone etc...
+                rec.SpeechRecognized += new EventHandler<SpeechRecognizedEventArgs>(rec_SpeechRecognized);
+            }
+            catch { return; }   //catch clause to catch any type of exception
+        }
+
+        public void say(String h)   
+        {
+            ss.Speak(h);    //for the program to speak specific responds
+            textBox2.AppendText(h);
+            textBox2.AppendText(Environment.NewLine);   //textbox to display output audio responds
+        }
+
+        public void exit()  //function for the program to terminate itself
+        {
+            Environment.Exit(0);
+        }
+
+        String[] greetings = new String[3] { "yes, maker? Serene reporting for duty", "hello, I am ready to help", "hi, happy to offer my assistance" };    //greeting responds
+        public String greetings_action() //for program to return greeting responds in random
+        {
+            Random r = new Random();
+
+            return greetings[r.Next(3)];
+        }
+
+        void sendDataToArduino(char character)  //function that connects with the Arduino IDE 
+        {
+            myPort.Open();
+            myPort.Write(character.ToString());
+            myPort.Close();
+        }
+
+        private void rec_SpeechRecognized(object sender, SpeechRecognizedEventArgs e)   //main functions
+        {
+            String r = e.Result.Text;
+            if (r == "wake")    //command for program to be in Awake mode
+            {
+                say("I am awake, how may I help");
+                label3.Text = "State: Awake";
+                wake = true;
+            }
+            if (r == "serene, sleep" || r == "take five")   //commands for program to be in Sleep mode
+            {
+                say("good bye, maker");
+                label3.Text = "State: Sleep";
+                wake = false;
+            }
+
+            if (wake == true)   //if program is Awake
+            {
+                if (r == "music please")    //command to play music file
+                {
+                    say("right away, please enjoy the melody");
+                    System.Media.SoundPlayer player = new System.Media.SoundPlayer(@"C:\Users\Nicholas Yiw\Desktop\ambient.wav");
+                    player.Play();
+                }
+
+                if (r == "stop the music")  //command to stop playing music file
+                {
+                    say("as you wish, maker");
+                    System.Media.SoundPlayer player = new System.Media.SoundPlayer(@"C:\Users\Nicholas Yiw\Desktop\ambient.wav");
+                    player.Stop();
+                }
+
+                if (r == "volume up")   //command to increase volume
+                {
+                    say("increasing volume, one moment");
+                    CoreAudioDevice defaultPlaybackDevice = new CoreAudioController().DefaultPlaybackDevice;
+                    defaultPlaybackDevice.Volume = 90;
+                    say("I have turned up the volume");
+                }
+
+                if (r == "decrease volume")     //command to lower the volume
+                {
+                    say("lowering volume, just a second");
+                    CoreAudioDevice defaultPlaybackDevice = new CoreAudioController().DefaultPlaybackDevice;
+                    defaultPlaybackDevice.Volume = 40;
+                    say("I have dialed the volume down");
+                }
+
+                if (r == "tell the time")   //command for program to tell the current time
+                {
+                    say(DateTime.Now.ToString("h:mm tt"));
+                }
+
+                if (r == "what is today")   //command for program to tell current date
+                {
+                    say(DateTime.Now.ToString("M/d/yyyy"));
+                }
+
+                if (r == "serene, report" || r == "serene, hello")  //commands to initiate greeting responds
+                {
+                    say(greetings_action());
+                }
+
+                if (r == "main light")  //to turn on blue LEDs
+                {
+                    say("welcome home, maker");
+                    sendDataToArduino('B');
+                }
+
+                if (r == "bedroom") //to turn on red LED
+                {
+                    say("welcome, I hope you've had a great day");
+                    sendDataToArduino('R');
+                }
+
+                if (r == "pantry")  //to turn on white LED
+                {
+                    say("welcome, an apple a day keeps the doctor away");
+                    sendDataToArduino('G');
+                }
+
+                if (r == "main light off")  //to turn off blue LEDs
+                {
+                    say("got it covered, please mind your step");
+                    sendDataToArduino('Z');
+                }
+
+                if (r == "bedroom off") //to turn off red LED
+                {
+                    say("good night, maker");
+                    sendDataToArduino('X');
+                }
+
+                if (r == "pantry off")  //to turn off white LED
+                {
+                    say("alright, snack time is over");
+                    sendDataToArduino('C');
+                }
+
+                if (r == "bedroom dim") //to dim the red LED
+                {
+                    say("dimming, setting the mood for relaxation");
+                    sendDataToArduino('D');
+                }
+
+                if (r == "christmas")   //to light up all LEDs
+                {
+                    say("hoho, ho");
+                    sendDataToArduino('V');
+                }
+
+                if (r == "lights out")  //to switch off all LEDs
+                {
+                    say("blackout in 3, 2, 1, please be careful in the dark");
+                    sendDataToArduino('M');
+                }
+
+                if (r == "window")  //to rotate the servo motor
+                {
+                    say("letting in some fresh air now");
+                    sendDataToArduino('T');
+                }
+
+                if (r == "close window")    //to return the servo motor back to its original position
+                {
+                    say("closing, please mind your fingers");
+                    sendDataToArduino('W');
+                }
+
+                if (r == "launch youtube")  //to launch YouTube in the browswer
+                {
+                    say("coming right up, maker");
+                    Process.Start("http://youtube.com");
+                }
+                
+                if (r == "power off")   //for the program to terminate itself and exit
+                {
+                    say("Serene signing off. It is always a pleasure to assist you");
+                    exit();
+                }
+            }
+            textBox1.AppendText(r);
+            textBox1.AppendText(Environment.NewLine);   //textbox to display input voice commands
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+
+        }
+        private void TextBox1_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+    }
+}
